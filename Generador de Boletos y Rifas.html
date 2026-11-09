@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Generador Profesional de Boletos y Rifas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+  .container { max-width: 1300px; margin: 0 auto; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+  h1 { text-align: center; color: #333; margin: 0 0 20px; font-size: 22px; }
+  .tabs { display: flex; gap: 5px; border-bottom: 2px solid #0078d4; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab { padding: 10px 18px; background: #e0e0e0; border: none; cursor: pointer; border-radius: 5px 5px 0 0; font-size: 14px; }
+  .tab.active { background: #0078d4; color: #fff; }
+  .tab:hover:not(.active) { background: #d0d0d0; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 300px; }
+  .card { background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+  .card h3 { margin: 0 0 12px; color: #0078d4; border-bottom: 1px solid #ddd; padding-bottom: 8px; font-size: 15px; }
+  .form-group { margin-bottom: 10px; }
+  .form-group label { display: block; font-size: 13px; color: #333; margin-bottom: 3px; }
+  .form-group input, .form-group select { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+  .form-group.inline { display: flex; gap: 10px; }
+  .form-group.inline > div { flex: 1; }
+  button { background: #0078d4; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  button:hover { background: #005a9e; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  button.secondary { background: #6c757d; }
+  button.secondary:hover { background: #5a6268; }
+  #image-area { position: relative; background: #2b2b2b; min-height: 450px; display: flex; align-items: center; justify-content: center; overflow: auto; border-radius: 8px; padding: 10px; }
+  #image-wrapper { position: relative; display: inline-block; }
+  #preview-img { display: block; max-width: 100%; max-height: 70vh; cursor: crosshair; user-select: none; -webkit-user-drag: none; }
+  #selection-box { position: absolute; border: 2px dashed #00ffcc; background: rgba(0,255,204,.15); pointer-events: none; display: none; }
+  .progress-wrap { width: 100%; height: 24px; background: #e0e0e0; border-radius: 12px; overflow: hidden; margin: 15px 0; }
+  .progress-bar { height: 100%; background: #0078d4; width: 0%; transition: width .2s; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; }
+  .status { text-align: center; font-style: italic; color: #666; padding: 10px; min-height: 20px; }
+  .summary { background: #e8f5e9; border: 1px solid #4caf50; padding: 15px; border-radius: 6px; white-space: pre-line; line-height: 1.6; font-size: 13px; }
+  .summary.error { background: #ffebee; border-color: #f44336; color: #c62828; }
+  .info { font-size: 12px; color: #666; margin-top: 5px; line-height: 1.4; }
+  .hint { color: #1565c0; font-size: 12px; line-height: 1.5; margin-top: 10px; }
+  .preview-canvas-wrap { text-align: center; padding: 20px; background: #2b2b2b; border-radius: 8px; }
+  #ticket-preview { max-width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,.3); background: #fff; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 12px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎟️ Generador Profesional de Boletos y Rifas</h1>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="tab1">1. Imagen y Área</button>
+    <button class="tab" data-tab="tab2">2. Rango y Texto</button>
+    <button class="tab" data-tab="tab3">3. Configuración PDF</button>
+    <button class="tab" data-tab="tab4">4. Generar y Previsualizar</button>
+  </div>
+
+  <!-- ============ TAB 1 ============ -->
+  <div id="tab1" class="tab-content active">
+    <div class="row">
+      <div class="col" style="flex: 0 0 300px;">
+        <div class="card">
+          <h3>📂 Carga y Coordenadas</h3>
+          <div class="form-group">
+            <label>Cargar Plantilla (JPG/PNG):</label>
+            <input type="file" id="file-input" accept="image/*">
+          </div>
+          <div class="info" id="filename-info">Ninguna imagen cargada</div>
+          <hr>
+          <label style="font-size:13px;">Coordenadas del Número (px imagen):</label>
+          <div class="form-group inline" style="margin-top:8px;">
+            <div><label>X1:</label><input type="number" id="sel-x1" value="0"></div>
+            <div><label>Y1:</label><input type="number" id="sel-y1" value="0"></div>
+          </div>
+          <div class="form-group inline">
+            <div><label>X2:</label><input type="number" id="sel-x2" value="100"></div>
+            <div><label>Y2:</label><input type="number" id="sel-y2" value="50"></div>
+          </div>
+          <button onclick="applyCoords()" style="width:100%;">Aplicar Coordenadas</button>
+          <div class="hint">
+            💡 La imagen se estirará para <b>llenar el boleto completo</b>.<br>
+            Haz clic y arrastra sobre la imagen para marcar el área donde irá el número.
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>🖼️ Vista Previa Interactiva</h3>
+          <div id="image-area">
+            <div id="image-wrapper">
+              <img id="preview-img" style="display:none;" alt="">
+              <div id="selection-box"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TAB 2 ============ -->
+  <div id="tab2" class="tab-content">
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h3>🔢 Configuración de Rango</h3>
+          <div class="form-group"><label>Número Inicial:</label><input type="number" id="ini-num" value="1"></div>
+          <div class="form-group"><label>Número Final:</label><input type="number" id="end-num" value="100"></div>
+          <div class="form-group"><label>Paso (Incremento):</label><input type="number" id="step-num" value="1"></div>
+          <div class="form-group"><label>Cantidad de Dígitos:</label><input type="number" id="digits-num" value="3"></div>
+          <div class="form-group"><label>Prefijo (opcional):</label><input type="text" id="prefix-str" value=""></div>
+          <div class="form-group"><label>Sufijo (opcional):</label><input type="text" id="suffix-str" value=""></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>✍️ Estilo y Tipografía</h3>
+          <div class="form-group">
+            <label>Familia de Fuente:</label>
+            <select id="font-family">
+              <option value="Arial, sans-serif">Arial (predeterminada)</option>
+              <option value="'Times New Roman', serif">Times New Roman</option>
+              <option value="'Courier New', monospace">Courier New</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+              <option value="Impact, sans-serif">Impact</option>
+              <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+              <option value="CustomFont, sans-serif">— Personalizada (abajo) —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Fuente Personalizada (.ttf/.otf):</label>
+            <input type="file" id="font-file" accept=".ttf,.otf,.woff,.woff2">
+            <div class="info" id="font-file-info">Ninguna fuente cargada</div>
+          </div>
+          <div class="form-group">
+            <label>Tamaño de Fuente (pt):</label>
+            <input type="number" id="font-size" value="72" min="6" max="500">
+            <div class="info">72 pt ≈ 2.5 cm de alto. Súbelo si se ve pequeño.</div>
+          </div>
+          <div class="form-group">
+            <label>Color del Texto:</label>
+            <input type="color" id="text-color" value="#000000">
+          </div>
+          <div class="form-group inline">
+            <div>
+              <label>Alin. Horizontal:</label>
+              <select id="h-align">
+                <option value="left">Izquierda</option>
+                <option value="center" selected>Centro</option>
+                <option value="right">Derecha</option>
+              </select>
+            </div>
+            <div>
+              <label>Alin. Vertical:</label>
+              <select id="v-align">
+                <option value="top">Arriba</option>
+                <option value="middle" selected>Medio</option>
+                <option value="bottom">Abajo</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="auto-fit" checked style="width:auto;">
+              Encoger automáticamente si no cabe
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TAB 3 ============ -->
+  <div id="tab3" class="tab-content">
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h3>📄 Hoja y Márgenes</h3>
+          <div class="form-group">
+            <label>Tamaño de Hoja:</label>
+            <select id="page-size">
+              <option value="A4">A4</option>
+              <option value="Oficio" selected>Oficio</option>
+              <option value="Legal">Legal</option>
+              <option value="Personalizado">Personalizado</option>
+            </select>
+          </div>
+          <div id="custom-size-fields" style="display:none;">
+            <div class="form-group inline">
+              <div><label>Ancho (cm):</label><input type="number" id="custom-w" value="21.6" step="0.1"></div>
+              <div><label>Alto (cm):</label><input type="number" id="custom-h" value="33" step="0.1"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Orientación:</label>
+            <select id="orientation">
+              <option value="Vertical" selected>Vertical</option>
+              <option value="Horizontal">Horizontal</option>
+            </select>
+          </div>
+          <div class="form-group inline">
+            <div><label>Margen Sup (cm):</label><input type="number" id="m-top" value="1" step="0.1"></div>
+            <div><label>Margen Inf (cm):</label><input type="number" id="m-bot" value="1" step="0.1"></div>
+          </div>
+          <div class="form-group inline">
+            <div><label>Margen Izq (cm):</label><input type="number" id="m-left" value="1" step="0.1"></div>
+            <div><label>Margen Der (cm):</label><input type="number" id="m-right" value="1" step="0.1"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>📐 Medidas y Cuadrícula</h3>
+          <div class="form-group inline">
+            <div><label>Ancho Boleto (cm):</label><input type="number" id="ticket-w" value="8" step="0.1"></div>
+            <div><label>Alto Boleto (cm):</label><input type="number" id="ticket-h" value="5" step="0.1"></div>
+          </div>
+          <div class="form-group inline">
+            <div><label>Sep. Horiz. (mm):</label><input type="number" id="spacing-h" value="0" step="0.1"></div>
+            <div><label>Sep. Vert. (mm):</label><input type="number" id="spacing-v" value="0" step="0.1"></div>
+          </div>
+          <div class="form-group">
+            <label>Modo Cuadrícula:</label>
+            <select id="grid-mode">
+              <option value="auto" selected>Automático</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+          <div class="form-group" id="manual-grid" style="display:none;">
+            <label>Columnas / Filas (Manual):</label>
+            <div class="form-group inline">
+              <div><input type="number" id="manual-cols" value="2" min="1"></div>
+              <div><input type="number" id="manual-rows" value="6" min="1"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="show-guides" checked style="width:auto;">
+              Dibujar líneas de corte
+            </label>
+          </div>
+          <div class="form-group">
+            <label>Nombre del PDF:</label>
+            <input type="text" id="output-filename" value="boletos_rifa.pdf">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TAB 4 ============ -->
+  <div id="tab4" class="tab-content">
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h3>✅ Listo para Generar</h3>
+          <div class="summary" id="summary">
+            Cargue una imagen y configure los parámetros para ver el resumen.
+          </div>
+          <div style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button onclick="updateSummary()">🔍 Actualizar Resumen</button>
+            <button onclick="updateTicketPreview()">👁️ Previsualizar Boleto</button>
+            <button onclick="generatePDF()" id="btn-generate">🚀 Generar PDF</button>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar" id="progress-bar">0%</div>
+          </div>
+          <div class="status" id="status"></div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <h3>🎫 Boleto de Muestra</h3>
+          <div class="preview-canvas-wrap">
+            <canvas id="ticket-preview" style="max-width:100%;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTES
+// ============================================================
+const CM_TO_PT = 28.3465;
+const MM_TO_PT = 2.83465;
+const RENDER_DPI = 300;
+const STANDARD_SIZES = { 'A4': [210, 297], 'Oficio': [216, 330], 'Legal': [216, 356] };
+
+// ============================================================
+// ESTADO
+// ============================================================
+let originalImage = null;    // HTMLImageElement
+let imageLoaded   = false;
+let currentFontFamily = "Arial, sans-serif";
+let customFontLoaded = false;
+
+const sel = { x1: 0, y1: 0, x2: 100, y2: 50 };
+let dragStart = null;
+let isDragging = false;
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function padNumber(n, digits) {
+  const negative = n < 0;
+  let s = Math.abs(n).toString();
+  while (s.length < digits) s = '0' + s;
+  return (negative ? '-' : '') + s;
+}
+
+function parseNum(id, def) {
+  const v = parseFloat($(id).value);
+  return isNaN(v) ? def : v;
+}
+
+function parseFloatSafe(id, def) {
+  const v = parseFloat($(id).value);
+  return isNaN(v) ? def : v;
+}
+
+// ============================================================
+// TABS
+// ============================================================
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    $(btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'tab4') { updateSummary(); updateTicketPreview(); }
+  });
+});
+
+// ============================================================
+// TAB 1 — IMAGEN Y SELECCIÓN
+// ============================================================
+$('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      imageLoaded = true;
+      $('preview-img').src = ev.target.result;
+      $('preview-img').style.display = 'block';
+      $('filename-info').textContent = file.name;
+
+      // Selección inicial: 25%-75% ancho, 55%-85% alto
+      const w = img.naturalWidth, h = img.naturalHeight;
+      sel.x1 = Math.round(w * 0.25);
+      sel.y1 = Math.round(h * 0.55);
+      sel.x2 = Math.round(w * 0.75);
+      sel.y2 = Math.round(h * 0.85);
+      syncInputsFromSel();
+      redrawSelection();
+      updateSummary();
+    };
+    img.onerror = () => alert('No se pudo cargar la imagen.');
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function syncInputsFromSel() {
+  $('sel-x1').value = sel.x1;
+  $('sel-y1').value = sel.y1;
+  $('sel-x2').value = sel.x2;
+  $('sel-y2').value = sel.y2;
+}
+
+function applyCoords() {
+  if (!imageLoaded) return alert('Primero cargue una imagen.');
+  const w = originalImage.naturalWidth, h = originalImage.naturalHeight;
+  sel.x1 = Math.max(0, Math.min(parseInt($('sel-x1').value) || 0, w));
+  sel.y1 = Math.max(0, Math.min(parseInt($('sel-y1').value) || 0, h));
+  sel.x2 = Math.max(0, Math.min(parseInt($('sel-x2').value) || 0, w));
+  sel.y2 = Math.max(0, Math.min(parseInt($('sel-y2').value) || 0, h));
+  if (sel.x2 < sel.x1) [sel.x1, sel.x2] = [sel.x2, sel.x1];
+  if (sel.y2 < sel.y1) [sel.y1, sel.y2] = [sel.y2, sel.y1];
+  syncInputsFromSel();
+  redrawSelection();
+}
+
+function redrawSelection() {
+  const img = $('preview-img');
+  const box = $('selection-box');
+  if (!imageLoaded || img.style.display === 'none') { box.style.display = 'none'; return; }
+  const rect = img.getBoundingClientRect();
+  const w = originalImage.naturalWidth, h = originalImage.naturalHeight;
+  const sx = rect.width / w, sy = rect.height / h;
+  box.style.display = 'block';
+  box.style.left = (sel.x1 * sx) + 'px';
+  box.style.top = (sel.y1 * sy) + 'px';
+  box.style.width = ((sel.x2 - sel.x1) * sx) + 'px';
+  box.style.height = ((sel.y2 - sel.y1) * sy) + 'px';
+}
+
+// Drag & drop sobre la imagen
+const imgEl = $('preview-img');
+imgEl.addEventListener('pointerdown', e => {
+  if (!imageLoaded) return;
+  const rect = imgEl.getBoundingClientRect();
+  dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  isDragging = true;
+  imgEl.setPointerCapture(e.pointerId);
+});
+
+imgEl.addEventListener('pointermove', e => {
+  if (!isDragging || !dragStart) return;
+  const rect = imgEl.getBoundingClientRect();
+  const curX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+  const curY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+  const x1 = Math.min(dragStart.x, curX);
+  const y1 = Math.min(dragStart.y, curY);
+  const x2 = Math.max(dragStart.x, curX);
+  const y2 = Math.max(dragStart.y, curY);
+  const box = $('selection-box');
+  box.style.display = 'block';
+  box.style.left = x1 + 'px';
+  box.style.top = y1 + 'px';
+  box.style.width = (x2 - x1) + 'px';
+  box.style.height = (y2 - y1) + 'px';
+});
+
+imgEl.addEventListener('pointerup', e => {
+  if (!isDragging || !dragStart) return;
+  isDragging = false;
+  const rect = imgEl.getBoundingClientRect();
+  const sx = originalImage.naturalWidth / rect.width;
+  const sy = originalImage.naturalHeight / rect.height;
+  const curX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+  const curY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+  const x1 = Math.min(dragStart.x, curX) * sx;
+  const y1 = Math.min(dragStart.y, curY) * sy;
+  const x2 = Math.max(dragStart.x, curX) * sx;
+  const y2 = Math.max(dragStart.y, curY) * sy;
+  dragStart = null;
+  if (x2 - x1 > 5 && y2 - y1 > 5) {
+    sel.x1 = Math.round(x1); sel.y1 = Math.round(y1);
+    sel.x2 = Math.round(x2); sel.y2 = Math.round(y2);
+    syncInputsFromSel();
+  }
+  redrawSelection();
+});
+
+// Redibujar si cambia tamaño de ventana
+window.addEventListener('resize', redrawSelection);
+
+// ============================================================
+// TAB 2 — FUENTE PERSONALIZADA
+// ============================================================
+$('font-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const buf = await file.arrayBuffer();
+    const face = new FontFace('CustomFont', buf);
+    await face.load();
+    document.fonts.add(face);
+    customFontLoaded = true;
+    currentFontFamily = 'CustomFont, sans-serif';
+    $('font-family').value = 'CustomFont, sans-serif';
+    $('font-file-info').textContent = '✓ ' + file.name;
+  } catch (err) {
+    alert('No se pudo cargar la fuente: ' + err.message);
+  }
+});
+
+$('font-family').addEventListener('change', e => {
+  currentFontFamily = e.target.value;
+});
+
+// ============================================================
+// TAB 3 — CONTROLES DINÁMICOS
+// ============================================================
+$('page-size').addEventListener('change', e => {
+  $('custom-size-fields').style.display = (e.target.value === 'Personalizado') ? 'block' : 'none';
+  updateSummary();
+});
+$('grid-mode').addEventListener('change', e => {
+  $('manual-grid').style.display = (e.target.value === 'manual') ? 'block' : 'none';
+  updateSummary();
+});
+
+// Auto-update summary al cambiar cualquier input de config
+document.querySelectorAll('#tab2 input, #tab2 select, #tab3 input, #tab3 select').forEach(el => {
+  el.addEventListener('input', updateSummary);
+  el.addEventListener('change', updateSummary);
+});
+
+// ============================================================
+// CÁLCULOS
+// ============================================================
+function getPageDimensionsPt() {
+  const size = $('page-size').value;
+  let w_mm, h_mm;
+  if (size === 'Personalizado') {
+    w_mm = parseFloatSafe('custom-w', 21.6) * 10;
+    h_mm = parseFloatSafe('custom-h', 33.0) * 10;
+  } else {
+    [w_mm, h_mm] = STANDARD_SIZES[size] || [216, 330];
+  }
+  let w_pt = w_mm * MM_TO_PT;
+  let h_pt = h_mm * MM_TO_PT;
+  if ($('orientation').value === 'Horizontal') [w_pt, h_pt] = [h_pt, w_pt];
+  return [w_pt, h_pt];
+}
+
+function computeLayout() {
+  const [p_w, p_h] = getPageDimensionsPt();
+  const m_top = parseFloatSafe('m-top', 1) * CM_TO_PT;
+  const m_bot = parseFloatSafe('m-bot', 1) * CM_TO_PT;
+  const m_left = parseFloatSafe('m-left', 1) * CM_TO_PT;
+  const m_right = parseFloatSafe('m-right', 1) * CM_TO_PT;
+  const usable_w = p_w - m_left - m_right;
+  const usable_h = p_h - m_top - m_bot;
+
+  const t_w = parseFloatSafe('ticket-w', 8) * CM_TO_PT;
+  const t_h = parseFloatSafe('ticket-h', 5) * CM_TO_PT;
+  const s_h = parseFloatSafe('spacing-h', 0) * MM_TO_PT;
+  const s_v = parseFloatSafe('spacing-v', 0) * MM_TO_PT;
+
+  let cols, rows;
+  if ($('grid-mode').value === 'auto') {
+    cols = (t_w + s_h) > 0 ? Math.floor((usable_w + s_h) / (t_w + s_h)) : 0;
+    rows = (t_h + s_v) > 0 ? Math.floor((usable_h + s_v) / (t_h + s_v)) : 0;
+  } else {
+    cols = parseInt($('manual-cols').value) || 0;
+    rows = parseInt($('manual-rows').value) || 0;
+  }
+  return { p_w, p_h, m_top, m_bot, m_left, m_right, usable_w, usable_h, t_w, t_h, s_h, s_v, cols, rows };
+}
+
+function getNumbers() {
+  const ini = parseInt($('ini-num').value);
+  const fin = parseInt($('end-num').value);
+  const step = parseInt($('step-num').value);
+  const digits = Math.max(1, parseInt($('digits-num').value) || 1);
+  const prefix = $('prefix-str').value || '';
+  const suffix = $('suffix-str').value || '';
+
+  if (isNaN(ini) || isNaN(fin) || isNaN(step)) throw new Error('Rango inválido.');
+  if (ini > fin) throw new Error('El número inicial debe ser ≤ al final.');
+  if (step <= 0) throw new Error('El paso debe ser > 0.');
+
+  const numbers = [];
+  for (let n = ini; n <= fin; n += step) numbers.push(n);
+  return { numbers, digits, prefix, suffix };
+}
+
+// ============================================================
+// RESUMEN
+// ============================================================
+function updateSummary() {
+  const el = $('summary');
+  try {
+    if (!imageLoaded) {
+      el.className = 'summary error';
+      el.textContent = '⚠️ Por favor, cargue una imagen plantilla primero (pestaña 1).';
+      return;
+    }
+    const { numbers } = getNumbers();
+    const total = numbers.length;
+    const L = computeLayout();
+
+    if (L.cols < 1 || L.rows < 1) throw new Error('La cuadrícula resulta en 0 columnas o filas.');
+
+    const per_sheet = L.cols * L.rows;
+    const pages = Math.ceil(total / per_sheet);
+    const sizeName = $('page-size').value === 'Personalizado'
+      ? `Personalizado`
+      : $('page-size').value;
+
+    el.className = 'summary';
+    el.textContent =
+      `✅ Rango: ${$('ini-num').value} al ${$('end-num').value} (Total boletos: ${total})\n` +
+      `📄 Hoja: ${sizeName} (${(L.p_w/CM_TO_PT).toFixed(1)} x ${(L.p_h/CM_TO_PT).toFixed(1)} cm) | Orientación: ${$('orientation').value}\n` +
+      `🎟️ Boleto: ${$('ticket-w').value} x ${$('ticket-h').value} cm (la imagen llenará el boleto completo)\n` +
+      `📊 Distribución: ${L.cols} columnas x ${L.rows} filas = ${per_sheet} por hoja\n` +
+      `📑 Páginas estimadas: ${pages}\n` +
+      `✂️ Líneas de corte: ${$('show-guides').checked ? 'Sí' : 'No'}`;
+  } catch (err) {
+    el.className = 'summary error';
+    el.textContent = '❌ ' + err.message;
+  }
+}
+
+// ============================================================
+// RENDERIZADO DE UN BOLETO (Canvas)
+// ============================================================
+function generateTicketCanvas(numberStr) {
+  if (!imageLoaded) throw new Error('Imagen no cargada.');
+
+  const t_w_pt = parseFloatSafe('ticket-w', 8) * CM_TO_PT;
+  const t_h_pt = parseFloatSafe('ticket-h', 5) * CM_TO_PT;
+  const targetW = Math.max(50, Math.round(t_w_pt / 72 * RENDER_DPI));
+  const targetH = Math.max(50, Math.round(t_h_pt / 72 * RENDER_DPI));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+
+  // 1) Imagen estirada para LLENAR el boleto
+  ctx.drawImage(originalImage, 0, 0, targetW, targetH);
+
+  // 2) Mapear coordenadas de selección al nuevo tamaño
+  const sx = targetW / originalImage.naturalWidth;
+  const sy = targetH / originalImage.naturalHeight;
+  const x1 = sel.x1 * sx;
+  const y1 = sel.y1 * sy;
+  const x2 = sel.x2 * sx;
+  const y2 = sel.y2 * sy;
+  const boxW = Math.max(1, x2 - x1);
+  const boxH = Math.max(1, y2 - y1);
+
+  // 3) Tamaño de fuente en píxeles (pt papel -> px imagen)
+  const initialFontPt = parseFloatSafe('font-size', 72);
+  let fontPx = Math.max(6, Math.round(initialFontPt / 72 * RENDER_DPI));
+  const fontFamily = currentFontFamily;
+
+  // 4) Auto-ajuste (solo encoge si no cabe)
+  if ($('auto-fit').checked) {
+    const testCanvas = document.createElement('canvas');
+    const testCtx = testCanvas.getContext('2d');
+    while (fontPx > 8) {
+      testCtx.font = `${fontPx}px ${fontFamily}`;
+      const m = testCtx.measureText(numberStr);
+      const w = m.width;
+      const asc = m.actualBoundingBoxAscent || fontPx * 0.7;
+      const desc = m.actualBoundingBoxDescent || fontPx * 0.2;
+      const h = asc + desc;
+      if (w <= boxW * 0.95 && h <= boxH * 0.95) break;
+      fontPx -= 2;
+    }
+  }
+
+  // 5) Alineaciones
+  const hAlign = $('h-align').value;
+  const vAlign = $('v-align').value;
+  ctx.font = `${fontPx}px ${fontFamily}`;
+  ctx.fillStyle = $('text-color').value;
+  ctx.textAlign = hAlign;      // left | center | right
+  ctx.textBaseline = vAlign;   // top | middle | bottom
+
+  let tx, ty;
+  if (hAlign === 'left')        tx = x1 + 2;
+  else if (hAlign === 'right')  tx = x2 - 2;
+  else                          tx = x1 + boxW / 2;
+
+  if (vAlign === 'top')         ty = y1 + 2;
+  else if (vAlign === 'bottom') ty = y2 - 2;
+  else                          ty = y1 + boxH / 2;
+
+  ctx.fillText(numberStr, tx, ty);
+  return canvas;
+}
+
+function updateTicketPreview() {
+  const prev = $('ticket-preview');
+  if (!imageLoaded) {
+    const ctx = prev.getContext('2d');
+    prev.width = 400; prev.height = 100;
+    ctx.fillStyle = '#2b2b2b'; ctx.fillRect(0, 0, 400, 100);
+    ctx.fillStyle = '#aaa'; ctx.font = '16px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('Cargue una imagen para ver la muestra', 200, 55);
+    return;
+  }
+  try {
+    const { numbers, digits, prefix, suffix } = getNumbers();
+    const sample = prefix + padNumber(numbers[0], digits) + suffix;
+    const c = generateTicketCanvas(sample);
+    prev.width = c.width;
+    prev.height = c.height;
+    const ctx = prev.getContext('2d');
+    ctx.drawImage(c, 0, 0);
+  } catch (err) {
+    // silencio: parámetros inválidos
+  }
+}
+
+// ============================================================
+// GENERAR PDF
+// ============================================================
+async function generatePDF() {
+  if (typeof window.jspdf === 'undefined') {
+    alert('No se pudo cargar jsPDF. Verifica tu conexión a internet.');
+    return;
+  }
+  if (!imageLoaded) {
+    alert('Debe cargar una imagen plantilla primero.');
+    return;
+  }
+
+  const btn = $('btn-generate');
+  const status = $('status');
+  const bar = $('progress-bar');
+
+  try {
+    const { numbers, digits, prefix, suffix } = getNumbers();
+    const total = numbers.length;
+    const L = computeLayout();
+
+    if (L.cols < 1 || L.rows < 1) throw new Error('Cuadrícula inválida (menos de 1 columna o fila).');
+
+    const required_w = L.cols * L.t_w + (L.cols - 1) * L.s_h;
+    const required_h = L.rows * L.t_h + (L.rows - 1) * L.s_v;
+    if (required_w > L.usable_w + 1 || required_h > L.usable_h + 1) {
+      throw new Error(
+        `Los boletos no caben en la hoja.\n` +
+        `Necesario: ${(required_w/CM_TO_PT).toFixed(2)} x ${(required_h/CM_TO_PT).toFixed(2)} cm\n` +
+        `Disponible: ${(L.usable_w/CM_TO_PT).toFixed(2)} x ${(L.usable_h/CM_TO_PT).toFixed(2)} cm\n` +
+        `Prueba con orientación Horizontal o márgenes más pequeños.`
+      );
+    }
+
+    if (total > 800 && !confirm(`Vas a generar ${total} boletos. Puede tardar y consumir memoria. ¿Continuar?`)) return;
+
+    btn.disabled = true;
+    status.textContent = 'Generando PDF...';
+    status.style.color = '#0078d4';
+    bar.style.width = '0%';
+    bar.textContent = '0%';
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: [L.p_w, L.p_h], orientation: 'portrait' });
+
+    const per_sheet = L.cols * L.rows;
+    const showGuides = $('show-guides').checked;
+
+    for (let i = 0; i < total; i++) {
+      const numStr = prefix + padNumber(numbers[i], digits) + suffix;
+      const canvas = generateTicketCanvas(numStr);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+      const pos = i % per_sheet;
+      const col = pos % L.cols;
+      const row = Math.floor(pos / L.cols);
+
+      const x = L.m_left + col * (L.t_w + L.s_h);
+      const y = L.m_top + row * (L.t_h + L.s_v);
+
+      pdf.addImage(dataUrl, 'JPEG', x, y, L.t_w, L.t_h, undefined, 'FAST');
+
+      if (showGuides) {
+        pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.4);
+        pdf.rect(x, y, L.t_w, L.t_h);
+      }
+
+      if ((i + 1) % per_sheet === 0 && (i + 1) < total) {
+        pdf.addPage([L.p_w, L.p_h], 'portrait');
+      }
+
+      // Actualizar UI cada 5 boletos
+      if ((i + 1) % 5 === 0 || (i + 1) === total) {
+        const pct = Math.round((i + 1) / total * 100);
+        bar.style.width = pct + '%';
+        bar.textContent = pct + '%';
+        status.textContent = `Procesando boleto ${i + 1} de ${total}...`;
+        // Ceder el hilo para que se pinte la UI
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    let filename = ($('output-filename').value || 'boletos_rifa.pdf').trim();
+    if (!/\.pdf$/i.test(filename)) filename += '.pdf';
+
+    pdf.save(filename);
+
+    status.textContent = `✅ ¡PDF generado! ${total} boletos → ${filename}`;
+    status.style.color = '#2e7d32';
+    bar.style.width = '100%';
+    bar.textContent = '100%';
+  } catch (err) {
+    console.error(err);
+    alert('Error: ' + err.message);
+    status.textContent = '❌ Error durante la generación.';
+    status.style.color = '#c62828';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  // Mostrar el preview vacío inicial
+  updateTicketPreview();
+  updateSummary();
+
+  // Redibujar la selección si la imagen cambia de tamaño por layout
+  const ro = new ResizeObserver(() => redrawSelection());
+  ro.observe($('preview-img'));
+});
+</script>
+</body>
+</html>
